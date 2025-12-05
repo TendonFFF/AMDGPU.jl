@@ -17,4 +17,5 @@
     include("interfaces.jl")
     include("linalg.jl")
     include("preconditioners.jl")
+    include("issue_854.jl")
 end
