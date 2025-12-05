@@ -202,6 +202,63 @@
         @test (dA - dD) isa typ
         @test (dD - dA) isa typ
     end
+
+    @testset "Scalar multiplication with adjoint/transpose ($typ, $elty)" for typ in (
+        ROCSparseMatrixCSR, ROCSparseMatrixCSC,
+    ), elty in (
+        Float32, Float64, ComplexF32, ComplexF64,
+    )
+        N = 10
+        S = sprand(elty, N, N, 0.5)
+        dS = typ(S)
+        
+        # Test scalar types that may differ from matrix eltype
+        for scalar_elty in (Float32, Float64)
+            a = scalar_elty(rand())
+            
+            # Test scalar * adjoint(matrix)
+            expected = a * S'
+            result = a * dS'
+            @test result isa Adjoint{<:Any, <:typeof(dS)}
+            @test Array(result) ≈ expected
+            
+            # Test adjoint(matrix) * scalar
+            expected = S' * a
+            result = dS' * a
+            @test result isa Adjoint{<:Any, <:typeof(dS)}
+            @test Array(result) ≈ expected
+            
+            # Test scalar * transpose(matrix)
+            expected = a * transpose(S)
+            result = a * transpose(dS)
+            @test result isa Transpose{<:Any, <:typeof(dS)}
+            @test Array(result) ≈ expected
+            
+            # Test transpose(matrix) * scalar
+            expected = transpose(S) * a
+            result = transpose(dS) * a
+            @test result isa Transpose{<:Any, <:typeof(dS)}
+            @test Array(result) ≈ expected
+        end
+    end
+
+    @testset "Scalar multiplication chained operations ($typ, $elty)" for typ in (
+        ROCSparseMatrixCSR, ROCSparseMatrixCSC,
+    ), elty in (
+        Float64, ComplexF64,
+    )
+        N = 10
+        S = sprand(elty, N, N, 0.5)
+        dS = typ(S)
+        a = rand()
+        
+        # Test a * M' * M (from issue #854)
+        # This should work without scalar indexing
+        result = a * dS'
+        @test result isa Adjoint{<:Any, <:typeof(dS)}
+        
+        # Note: M' * M requires matrix-matrix multiplication which is tested elsewhere
+    end
 end
 
 @testset "SparseArrays.jl" begin
@@ -224,5 +281,39 @@ end
         @test Array(d_v.iPtr) == v.nzind
         @test Array(d_v.nzVal) == v.nzval
         @test d_v.len == v.n
+    end
+
+    @testset "Scalar multiplication with adjoint/transpose COO and BSR" begin
+        N = 10
+        S = sprand(Float64, N, N, 0.5)
+        a = 2.0
+        
+        # Test ROCSparseMatrixCOO
+        dS_coo = ROCSparseMatrixCOO(S)
+        result = a * dS_coo'
+        @test result isa Adjoint{<:Any, <:ROCSparseMatrixCOO}
+        @test Array(result) ≈ a * S'
+        
+        result = dS_coo' * a
+        @test result isa Adjoint{<:Any, <:ROCSparseMatrixCOO}
+        @test Array(result) ≈ S' * a
+        
+        result = a * transpose(dS_coo)
+        @test result isa Transpose{<:Any, <:ROCSparseMatrixCOO}
+        @test Array(result) ≈ a * transpose(S)
+        
+        # Test ROCSparseMatrixBSR
+        dS_bsr = ROCSparseMatrixBSR(ROCSparseMatrixCSR(S), 1)
+        result = a * dS_bsr'
+        @test result isa Adjoint{<:Any, <:ROCSparseMatrixBSR}
+        @test Array(result) ≈ a * S'
+        
+        result = dS_bsr' * a
+        @test result isa Adjoint{<:Any, <:ROCSparseMatrixBSR}
+        @test Array(result) ≈ S' * a
+        
+        result = a * transpose(dS_bsr)
+        @test result isa Transpose{<:Any, <:ROCSparseMatrixBSR}
+        @test Array(result) ≈ a * transpose(S)
     end
 end
