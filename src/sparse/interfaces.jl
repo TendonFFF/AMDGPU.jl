@@ -244,3 +244,27 @@ for SparseMatrixType in [:ROCSparseMatrixCSC, :ROCSparseMatrixCSR], op in [:(+),
 end
 
 # TODO _sptranspose / _spadjoint
+
+## scalar multiplication with Adjoint/Transpose wrappers
+
+# Scalar * Adjoint{ROCSparseMatrix}
+# These methods avoid scalar indexing by using broadcasting on the parent matrix
+for SparseMatrixType in [:ROCSparseMatrixCSC, :ROCSparseMatrixCSR, :ROCSparseMatrixCOO, :ROCSparseMatrixBSR]
+    @eval begin
+        function Base.:(*)(α::Number, A::Adjoint{<:Any, <:$SparseMatrixType})
+            return adjoint(parent(A) .* conj(α))
+        end
+        
+        function Base.:(*)(A::Adjoint{<:Any, <:$SparseMatrixType}, α::Number)
+            return adjoint(parent(A) .* conj(α))
+        end
+        
+        function Base.:(*)(α::Number, A::Transpose{<:Any, <:$SparseMatrixType})
+            return transpose(parent(A) .* α)
+        end
+        
+        function Base.:(*)(A::Transpose{<:Any, <:$SparseMatrixType}, α::Number)
+            return transpose(parent(A) .* α)
+        end
+    end
+end
