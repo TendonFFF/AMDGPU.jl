@@ -249,6 +249,8 @@ end
 
 # Scalar * Adjoint{ROCSparseMatrix}
 # These methods avoid scalar indexing by using broadcasting on the parent matrix
+# For adjoint: α * A' = (A * conj(α))' and A' * α = (A * conj(α))' by commutativity
+# For transpose: α * A^T = (A * α)^T and A^T * α = (A * α)^T by commutativity
 for SparseMatrixType in [:ROCSparseMatrixCSC, :ROCSparseMatrixCSR, :ROCSparseMatrixCOO, :ROCSparseMatrixBSR]
     @eval begin
         function Base.:(*)(α::Number, A::Adjoint{<:Any, <:$SparseMatrixType})
@@ -256,6 +258,7 @@ for SparseMatrixType in [:ROCSparseMatrixCSC, :ROCSparseMatrixCSR, :ROCSparseMat
         end
         
         function Base.:(*)(A::Adjoint{<:Any, <:$SparseMatrixType}, α::Number)
+            # Same as α * A' by commutativity of scalar multiplication
             return adjoint(parent(A) .* conj(α))
         end
         
